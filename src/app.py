@@ -11,10 +11,10 @@ from mlflow.models.signature import infer_signature
 
 app = Flask(__name__)
 
-processor = load("../preprocessing/preprocessor.joblib")  
+processor = load("preprocessing/preprocessor.joblib")  
 
 # pre processing column names
-column_list = pd.read_csv("../preprocessing/column_list_processed.csv").columns.tolist()
+column_list = pd.read_csv("preprocessing/column_list_processed.csv").columns.tolist()
 
 # Metrik untuk API model
 REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP Requests')  # Total request yang diterima
