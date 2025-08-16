@@ -12,9 +12,11 @@ env:
   DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
   MODEL_API_URL: ${{ secrets.MODEL_API_URL }}
   IMAGE_NAME: fraud_detection_system_api
+  SSH_HOST: ${{ secrets.SSH_HOST }}  # Your server IP
+  SSH_USER: ${{ secrets.SSH_USER }}  # SSH username (e.g., root, ubuntu)
 
 jobs:    
-  build:
+  build-and-push:
     runs-on: ubuntu-latest
     environment: production
     
@@ -47,7 +49,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-      - name: Build and push
+      - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -55,3 +57,38 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
           build-args: |
             MODEL_API_URL=${{ secrets.MODEL_API_URL }}
+
+  deploy:
+    needs: build-and-push  # Wait for build to complete
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - name: Add Server to Known Hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy to Server via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Pull the latest image
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            
+            # Stop and remove old container if exists
+            docker stop ${{ env.IMAGE_NAME }} || true
+            docker rm ${{ env.IMAGE_NAME }} || true
+            
+            # Run new container (customize ports/volumes as needed)
+            docker run -d \
+              --name ${{ env.IMAGE_NAME }} \
+              -p 5006:8000 \
+              -e MODEL_API_URL=${{ secrets.MODEL_API_URL }} \
+              ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
+            
+            # Clean up unused images
+            docker image prune -af
