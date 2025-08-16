@@ -61,6 +61,7 @@ jobs:
   deploy:
     needs: build-and-push  # Wait for build to complete
     runs-on: ubuntu-latest
+    environment: production
     
     steps:
       - name: Add Server to Known Hosts
