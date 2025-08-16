@@ -60,7 +60,7 @@ def transformed_data(raw_data):
     return input_data
 
 @app.route('/', methods=['GET'])
-def home():  # Changed from metrics() to home()
+def home():  
     return "Welcome to Fraud Detection System Server, You can go to /swagger-ui for Api docs"
 
 @app.route('/metrics', methods=['GET'])
@@ -94,46 +94,63 @@ def metrics():
 @app.route('/predict', methods=['POST'])
 def predict():
     """
-    Make a prediction using the ML model
+    Make a fraud prediction for a financial transaction
     ---
     tags:
-      - Predictions
+      - Fraud Detection
     consumes:
       - application/json
     produces:
       - application/json
     parameters:
       - in: body
-        name: input_data
-        description: Input data for prediction
+        name: transaction
+        description: Transaction data for fraud prediction
         required: true
         schema:
           type: object
           properties:
-            feature1:
+            transaction_id:
+              type: integer
+              description: Unique transaction identifier
+              example: 1
+            amount:
               type: number
-              description: Description of feature1
-              example: 0.5
-            feature2:
+              format: float
+              description: Transaction amount
+              example: 39.35
+            merchant_type:
               type: string
-              description: Description of feature2
-              example: "some_value"
+              description: Type of merchant
+              example: "clothing"
+            device_type:
+              type: string
+              description: Device used for transaction
+              example: "desktop"
           required:
-            - feature1
-            - feature2
+            - transaction_id
+            - amount
+            - merchant_type
+            - device_type
     responses:
       200:
-        description: Successful prediction
+        description: Fraud prediction result
         schema:
           type: object
           properties:
             Prediction:
               type: object
-              description: The model's prediction
+              properties:
+                predictions:
+                  type: array
+                  items:
+                    type: integer
+                  description: Fraud prediction (1 for fraud, 0 for legitimate)
+                  example: [1]
             Response time:
               type: string
               description: Time taken to process the request
-              example: "0.0456 seconds"
+              example: "0.0271 seconds"
       400:
         description: Invalid input data
         schema:
