@@ -15,6 +15,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc python3-dev
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Take the build argument and set as environment variable
+ARG MODEL_API_URL
+ENV MODEL_API_URL=$MODEL_API_URL
+
 # Copy project
 COPY . .
 
