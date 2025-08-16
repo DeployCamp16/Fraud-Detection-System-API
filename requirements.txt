@@ -1,0 +1,11 @@
+pandas
+numpy
+joblib
+python-dotenv
+virtualenv
+prometheus_client
+psutil
+flask
+requests
+scikit-learn==1.6.1
+mlflow
