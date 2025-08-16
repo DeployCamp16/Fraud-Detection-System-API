@@ -5,7 +5,7 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-  workflow_dispatch:
+  workflow_dispatch:  # Trigger manually via GitHub Actions UI
 
 env:
   DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -14,7 +14,7 @@ env:
   IMAGE_NAME: fraud_detection_system_api
 
 jobs:    
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
     environment: production
     
@@ -27,27 +27,29 @@ jobs:
           echo "MODEL_API_URL=$MODEL_API_URL" > .env
           cat .env  # For debugging
 
-      - name: Set up Python
+      - name: Set up Python 3.12.7
         uses: actions/setup-python@v4
         with:
           python-version: '3.12.7'
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt
+      - name: Check Environment
+        run: |
+          python --version
+          pip list
 
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+    
       - name: Login to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
     
-      - name: Build and push Docker image
+      - name: Build and push
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha_short }}
-          build-args: |
-            MODEL_API_URL=${{ secrets.MODEL_API_URL }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
