@@ -7,9 +7,31 @@ import pandas as pd
 from joblib import load
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 import mlflow
+from flasgger import Swagger
 from mlflow.models.signature import infer_signature
 
 app = Flask(__name__)
+
+# Configure Swagger with explicit specs
+swagger_config = {
+    "headers": [],
+    "specs": [
+        {
+            "endpoint": 'apispec',
+            "route": '/apispec.json',
+            "rule_filter": lambda rule: True,  # all in
+            "model_filter": lambda tag: True,  # all in
+        }
+    ],
+    "static_url_path": "/flasgger_static",
+    "swagger_ui": True,
+    "specs_route": "/swagger-ui/",
+    "title": "Fraud Detection System API",
+    "uiversion": 3
+}
+
+swagger = Swagger(app, config=swagger_config)
+
 
 processor = load("preprocessing/preprocessor.joblib")  
 
@@ -17,36 +39,118 @@ processor = load("preprocessing/preprocessor.joblib")
 column_list = pd.read_csv("preprocessing/column_list_processed.csv").columns.tolist()
 
 # Metrik untuk API model
-REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP Requests')  # Total request yang diterima
-REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP Request Latency')  # Waktu respons API
-THROUGHPUT = Counter('http_requests_throughput', 'Total number of requests per second')  # Throughput
+REQUEST_COUNT = Counter('http_requests_total', 'Total HTTP Requests')
+REQUEST_LATENCY = Histogram('http_request_duration_seconds', 'HTTP Request Latency')
+THROUGHPUT = Counter('http_requests_throughput', 'Total number of requests per second')
  
 # Metrik untuk sistem
-CPU_USAGE = Gauge('system_cpu_usage', 'CPU Usage Percentage')  # Penggunaan CPU
-RAM_USAGE = Gauge('system_ram_usage', 'RAM Usage Percentage')  # Penggunaan RAM
+CPU_USAGE = Gauge('system_cpu_usage', 'CPU Usage Percentage')
+RAM_USAGE = Gauge('system_ram_usage', 'RAM Usage Percentage')
 
 def transformed_data(raw_data):
     input_dataframe = pd.DataFrame([raw_data])
     transformed_data = processor.transform(input_dataframe).tolist()
 
-    input_data =  {
+    input_data = {
         'dataframe_split': {
             'columns': column_list,
             'data': transformed_data
         }
     }
-
     return input_data
+
+@app.route('/', methods=['GET'])
+def home():  # Changed from metrics() to home()
+    return "Welcome to Fraud Detection System Server, You can go to /swagger-ui for Api docs"
 
 @app.route('/metrics', methods=['GET'])
 def metrics():
+    """
+    Exposes Prometheus metrics for monitoring
+    ---
+    tags:
+      - Monitoring
+    produces:
+      - text/plain
+    responses:
+      200:
+        description: Returns Prometheus metrics in text format
+        content:
+          text/plain:
+            schema:
+              type: string
+              example: |
+                # HELP cpu_usage Current CPU usage percentage
+                # TYPE cpu_usage gauge
+                cpu_usage 23.7
+                # HELP ram_usage Current RAM usage percentage
+                # TYPE ram_usage gauge
+                ram_usage 45.2
+    """
     CPU_USAGE.set(psutil.cpu_percent(interval=1))  
     RAM_USAGE.set(psutil.virtual_memory().percent) 
-    
     return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
  
 @app.route('/predict', methods=['POST'])
 def predict():
+    """
+    Make a prediction using the ML model
+    ---
+    tags:
+      - Predictions
+    consumes:
+      - application/json
+    produces:
+      - application/json
+    parameters:
+      - in: body
+        name: input_data
+        description: Input data for prediction
+        required: true
+        schema:
+          type: object
+          properties:
+            feature1:
+              type: number
+              description: Description of feature1
+              example: 0.5
+            feature2:
+              type: string
+              description: Description of feature2
+              example: "some_value"
+          required:
+            - feature1
+            - feature2
+    responses:
+      200:
+        description: Successful prediction
+        schema:
+          type: object
+          properties:
+            Prediction:
+              type: object
+              description: The model's prediction
+            Response time:
+              type: string
+              description: Time taken to process the request
+              example: "0.0456 seconds"
+      400:
+        description: Invalid input data
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: "input data must be valid"
+      500:
+        description: Internal server error
+        schema:
+          type: object
+          properties:
+            error:
+              type: string
+              example: "Error connecting to model API"
+    """
     start_time = time.time()
     headers = {'Content-Type': 'application/json'}
     REQUEST_COUNT.inc()  
@@ -66,7 +170,7 @@ def predict():
         REQUEST_LATENCY.observe(duration)  
         
         return jsonify({
-            'Prediction:': res.json(),
+            'Prediction': res.json(),  
             'Response time': f'{duration:.4f} seconds'
         }), 200
  
@@ -74,4 +178,4 @@ def predict():
         return jsonify({"error": str(e)}), 500
  
 if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=8000)    
+    app.run(host='127.0.0.1', port=8000)

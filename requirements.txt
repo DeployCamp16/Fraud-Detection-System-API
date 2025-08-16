@@ -9,3 +9,4 @@ flask
 requests
 scikit-learn==1.6.1
 mlflow
+flasgger
