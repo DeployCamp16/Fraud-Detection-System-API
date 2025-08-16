@@ -86,7 +86,7 @@ jobs:
             # Run new container (customize ports/volumes as needed)
             docker run -d \
               --name ${{ env.IMAGE_NAME }} \
-              -p 8000:8000 \
+              -p 5006:8000 \
               -e MODEL_API_URL=${{ secrets.MODEL_API_URL }} \
               ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
             
